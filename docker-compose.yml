@@ -1,0 +1,55 @@
+services:
+  gpt-sovits:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gpt-sovits:latest
+    container_name: gpt-sovits-webui
+    ports:
+      - "9871:9871"  # 音声標注WebUI
+      - "9872:9872"  # TTS推理WebUI
+      - "9873:9873"  # 人声分離WebUI
+      - "9874:9874"  # メインWebUI
+      - "9880:9880"  # API
+    volumes:
+      # モデルファイルとデータの永続化
+      - ./logs:/workspace/GPT-SoVITS/logs
+      - ./output:/workspace/GPT-SoVITS/output
+      - ./SoVITS_weights:/workspace/GPT-SoVITS/SoVITS_weights
+      - ./SoVITS_weights_v2:/workspace/GPT-SoVITS/SoVITS_weights_v2
+      - ./SoVITS_weights_v3:/workspace/GPT-SoVITS/SoVITS_weights_v3
+      - ./SoVITS_weights_v4:/workspace/GPT-SoVITS/SoVITS_weights_v4
+      - ./SoVITS_weights_v2Pro:/workspace/GPT-SoVITS/SoVITS_weights_v2Pro
+      - ./SoVITS_weights_v2ProPlus:/workspace/GPT-SoVITS/SoVITS_weights_v2ProPlus
+      - ./GPT_weights:/workspace/GPT-SoVITS/GPT_weights
+      - ./GPT_weights_v2:/workspace/GPT-SoVITS/GPT_weights_v2
+      - ./GPT_weights_v3:/workspace/GPT-SoVITS/GPT_weights_v3
+      - ./GPT_weights_v4:/workspace/GPT-SoVITS/GPT_weights_v4
+      - ./GPT_weights_v2Pro:/workspace/GPT-SoVITS/GPT_weights_v2Pro
+      - ./GPT_weights_v2ProPlus:/workspace/GPT-SoVITS/GPT_weights_v2ProPlus
+      # 事前学習済みモデル用のボリューム（外部からマウント）
+      - models:/workspace/models
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - is_half=True
+      - is_share=False
+      - language=Auto
+    command: >
+      bash -c "
+        conda activate base &&
+        python webui.py
+      "
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+volumes:
+  models:
+    driver: local
