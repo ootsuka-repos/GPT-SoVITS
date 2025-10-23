@@ -24,11 +24,6 @@ services:
       - is_half=True
       - is_share=True
       - language=ja_JP
-    command: >
-      bash -c "
-        conda activate base &&
-        python app/webui.py
-      "
     deploy:
       resources:
         reservations:

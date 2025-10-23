@@ -30,9 +30,7 @@ RUN bash Docker/miniconda_install.sh
 
 COPY requirements.txt /workspace/GPT-SoVITS/
 
-COPY install.sh /workspace/GPT-SoVITS/
-
-RUN chmod +x /workspace/GPT-SoVITS/install.sh /workspace/GPT-SoVITS/Docker/install_wrapper.sh
+RUN chmod +x /workspace/GPT-SoVITS/Docker/install_wrapper.sh
 
 RUN bash /workspace/GPT-SoVITS/Docker/install_wrapper.sh
 
@@ -50,6 +48,4 @@ WORKDIR /workspace/GPT-SoVITS
 
 COPY . /workspace/GPT-SoVITS
 
-RUN chmod +x /workspace/GPT-SoVITS/docker-entrypoint.sh
-
-ENTRYPOINT ["/workspace/GPT-SoVITS/docker-entrypoint.sh"]
+CMD ["/bin/bash", "-c", "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate base && python app/webui.py"]
