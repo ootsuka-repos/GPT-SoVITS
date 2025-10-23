@@ -28,13 +28,13 @@ ENV TARGETPLATFORM=${TARGETPLATFORM}
 
 RUN bash Docker/miniconda_install.sh
 
-COPY extra-req.txt /workspace/GPT-SoVITS/
-
 COPY requirements.txt /workspace/GPT-SoVITS/
 
 COPY install.sh /workspace/GPT-SoVITS/
 
-RUN bash Docker/install_wrapper.sh
+RUN chmod +x /workspace/GPT-SoVITS/install.sh /workspace/GPT-SoVITS/Docker/install_wrapper.sh
+
+RUN bash /workspace/GPT-SoVITS/Docker/install_wrapper.sh
 
 EXPOSE 9871 9872 9873 9874 9880
 
