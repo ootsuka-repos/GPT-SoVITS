@@ -162,7 +162,7 @@ dict_language = dict_language_v1 if version == "v1" else dict_language_v2
 
 tokenizer = AutoTokenizer.from_pretrained(bert_path)
 bert_model = AutoModelForMaskedLM.from_pretrained(bert_path)
-if is_half == True:
+if is_half:
     bert_model = bert_model.half().to(device)
 else:
     bert_model = bert_model.to(device)
@@ -213,7 +213,7 @@ class DictToAttrRecursive(dict):
 
 
 ssl_model = cnhubert.get_model()
-if is_half == True:
+if is_half:
     ssl_model = ssl_model.half().to(device)
 else:
     ssl_model = ssl_model.to(device)
@@ -234,7 +234,7 @@ def change_sovits_weights(sovits_path, prompt_language=None, text_language=None)
     print(sovits_path, version, model_version, if_lora_v3)
     is_exist = is_exist_s2gv3 if model_version == "v3" else is_exist_s2gv4
     path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
-    if if_lora_v3 == True and is_exist == False:
+    if if_lora_v3 and not is_exist:
         info = path_sovits + "SoVITS %s" % model_version + i18n("底模缺失，无法加载相应 LoRA 权重")
         gr.Warning(info)
         raise FileExistsError(info)
@@ -314,12 +314,12 @@ def change_sovits_weights(sovits_path, prompt_language=None, text_language=None)
             del vq_model.enc_q
         except:
             pass
-    if is_half == True:
+    if is_half:
         vq_model = vq_model.half().to(device)
     else:
         vq_model = vq_model.to(device)
     vq_model.eval()
-    if if_lora_v3 == False:
+    if not if_lora_v3:
         print("loading sovits_%s" % model_version, vq_model.load_state_dict(dict_s2["weight"], strict=False))
     else:
         path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
@@ -383,7 +383,7 @@ def change_gpt_weights(gpt_path):
     max_sec = config["data"]["max_sec"]
     t2s_model = Text2SemanticLightningModule(config, "****", is_train=False)
     t2s_model.load_state_dict(dict_s1["weight"])
-    if is_half == True:
+    if is_half:
         t2s_model = t2s_model.half()
     t2s_model = t2s_model.to(device)
     t2s_model.eval()
@@ -450,7 +450,7 @@ def init_bigvgan():
     bigvgan_model = bigvgan_model.eval()
     clean_hifigan_model()
     clean_sv_cn_model()
-    if is_half == True:
+    if is_half:
         bigvgan_model = bigvgan_model.half().to(device)
     else:
         bigvgan_model = bigvgan_model.to(device)
@@ -479,7 +479,7 @@ def init_hifigan():
     print("loading vocoder", hifigan_model.load_state_dict(state_dict_g))
     clean_bigvgan_model()
     clean_sv_cn_model()
-    if is_half == True:
+    if is_half:
         hifigan_model = hifigan_model.half().to(device)
     else:
         hifigan_model = hifigan_model.to(device)
@@ -544,7 +544,7 @@ def get_spepc(hps, filename, dtype, device, is_v2pro=False):
         center=False,
     )
     spec = spec.to(dtype)
-    if is_v2pro == True:
+    if is_v2pro:
         audio = resample(audio, sr1, 16000, device).to(dtype)
     return spec, audio
 
@@ -556,7 +556,7 @@ def clean_text_inf(text, language, version):
     return phones, word2ph, norm_text
 
 
-dtype = torch.float16 if is_half == True else torch.float32
+dtype = torch.float16 if is_half else torch.float32
 
 
 def get_bert_inf(phones, word2ph, norm_text, language):
@@ -566,7 +566,7 @@ def get_bert_inf(phones, word2ph, norm_text, language):
     else:
         bert = torch.zeros(
             (1024, len(phones)),
-            dtype=torch.float16 if is_half == True else torch.float32,
+            dtype=torch.float16 if is_half else torch.float32,
         ).to(device)
 
     return bert
@@ -732,7 +732,7 @@ sr_model = None
 
 def audio_sr(audio, sr):
     global sr_model
-    if sr_model == None:
+    if sr_model is None:
         from tools.audio_sr import AP_BWE
 
         try:
@@ -801,10 +801,10 @@ def get_tts_wav(
     print(i18n("实际输入的目标文本:"), text)
     zero_wav = np.zeros(
         int(hps.data.sampling_rate * pause_second),
-        dtype=np.float16 if is_half == True else np.float32,
+        dtype=np.float16 if is_half else np.float32,
     )
     zero_wav_torch = torch.from_numpy(zero_wav)
-    if is_half == True:
+    if is_half:
         zero_wav_torch = zero_wav_torch.half().to(device)
     else:
         zero_wav_torch = zero_wav_torch.to(device)
@@ -815,7 +815,7 @@ def get_tts_wav(
                 gr.Warning(i18n("参考音频在3~10秒范围外，请更换！"))
                 raise OSError(i18n("参考音频在3~10秒范围外，请更换！"))
             wav16k = torch.from_numpy(wav16k)
-            if is_half == True:
+            if is_half:
                 wav16k = wav16k.half().to(device)
             else:
                 wav16k = wav16k.to(device)
@@ -871,7 +871,7 @@ def get_tts_wav(
         t2 = ttime()
         # cache_key="%s-%s-%s-%s-%s-%s-%s-%s"%(ref_wav_path,prompt_text,prompt_language,text,text_language,top_k,top_p,temperature)
         # print(cache.keys(),if_freeze)
-        if i_text in cache and if_freeze == True:
+        if i_text in cache and if_freeze:
             pred_semantic = cache[i_text]
         else:
             with torch.no_grad():
@@ -896,7 +896,7 @@ def get_tts_wav(
             refers = []
             if is_v2pro:
                 sv_emb = []
-                if sv_cn_model == None:
+                if sv_cn_model is None:
                     init_sv_cn()
             if inp_refs:
                 for path in inp_refs:
@@ -965,10 +965,10 @@ def get_tts_wav(
             cfm_res = torch.cat(cfm_resss, 2)
             cfm_res = denorm_spec(cfm_res)
             if model_version == "v3":
-                if bigvgan_model == None:
+                if bigvgan_model is None:
                     init_bigvgan()
             else:  # v4
-                if hifigan_model == None:
+                if hifigan_model is None:
                     init_hifigan()
             vocoder_model = bigvgan_model if model_version == "v3" else hifigan_model
             with torch.inference_mode():
@@ -990,7 +990,7 @@ def get_tts_wav(
         opt_sr = 24000
     else:
         opt_sr = 48000  # v4
-    if if_sr == True and opt_sr == 24000:
+    if if_sr and opt_sr == 24000:
         print(i18n("音频超分中"))
         audio_opt, opt_sr = audio_sr(audio_opt.unsqueeze(0), opt_sr)
         max_audio = np.abs(audio_opt).max()

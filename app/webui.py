@@ -56,7 +56,6 @@ for site_packages_root in site_packages_roots:
             break
         except PermissionError:
             traceback.print_exc()
-import shutil
 import subprocess
 from subprocess import Popen
 
@@ -147,7 +146,7 @@ def fix_gpu_number(input):  # 将越界的number强制改到界内
     try:
         if int(input) not in set_gpu_numbers:
             return default_gpu_numbers
-    except:
+    except (ValueError, TypeError):
         return input
     return input
 
@@ -158,7 +157,7 @@ def fix_gpu_numbers(inputs):
         for input in inputs.split(","):
             output.append(str(fix_gpu_number(input)))
         return ",".join(output)
-    except:
+    except (ValueError, AttributeError):
         return inputs
 
 
@@ -175,7 +174,7 @@ def check_pretrained_is_exist(version):
     )
     _ = ""
     for i in pretrained_model_list:
-        if "s2Dv3" not in i and "s2Dv4" not in i and os.path.exists(i) == False:
+        if "s2Dv3" not in i and "s2Dv4" not in i and not os.path.exists(i):
             _ += f"\n    {i}"
     if _:
         print("warning: ", i18n("以下模型不存在:") + _)
@@ -183,10 +182,10 @@ def check_pretrained_is_exist(version):
 
 check_pretrained_is_exist(version)
 for key in pretrained_sovits_name.keys():
-    if os.path.exists(pretrained_sovits_name[key]) == False:
+    if not os.path.exists(pretrained_sovits_name[key]):
         pretrained_sovits_name[key] = ""
 for key in pretrained_gpt_name.keys():
-    if os.path.exists(pretrained_gpt_name[key]) == False:
+    if not os.path.exists(pretrained_gpt_name[key]):
         pretrained_gpt_name[key] = ""
 
 from config.config import (
@@ -440,7 +439,7 @@ def open_denoise(denoise_inp_dir, denoise_opt_dir):
             python_exec,
             denoise_inp_dir,
             denoise_opt_dir,
-            "float16" if is_half == True else "float32",
+            "float16" if is_half else "float32",
         )
 
         yield (
@@ -517,7 +516,7 @@ def open1Ba(
         os.makedirs("%s/logs_s2_%s" % (s2_dir, version), exist_ok=True)
         if check_for_existance([s2_dir], is_train=True):
             check_details([s2_dir], is_train=True)
-        if is_half == False:
+        if not is_half:
             data["train"]["fp16_run"] = False
             batch_size = max(1, batch_size // 2)
         data["train"]["batch_size"] = batch_size
@@ -611,7 +610,7 @@ def open1Bb(
         os.makedirs("%s/logs_s1" % (s1_dir), exist_ok=True)
         if check_for_existance([s1_dir], is_train=True):
             check_details([s1_dir], is_train=True)
-        if is_half == False:
+        if not is_half:
             data["train"]["precision"] = "32"
             batch_size = max(1, batch_size // 2)
         data["train"]["batch_size"] = batch_size
@@ -685,7 +684,7 @@ def open_slice(inp, opt_root, threshold, min_length, min_interval, hop_size, max
     inp = my_utils.clean_path(inp)
     opt_root = my_utils.clean_path(opt_root)
     check_for_existance([inp])
-    if os.path.exists(inp) == False:
+    if not os.path.exists(inp):
         yield (
             i18n("输入路径不存在"),
             {"__type__": "update", "visible": True},
@@ -764,7 +763,7 @@ def close_slice():
         for p_slice in ps_slice:
             try:
                 kill_process(p_slice.pid, process_name_slice)
-            except:
+            except Exception:
                 traceback.print_exc()
         ps_slice = []
     return (
@@ -1067,8 +1066,8 @@ def open1abc(
         try:
             #############################1a
             path_text = "%s/2-name2text.txt" % opt_dir
-            if os.path.exists(path_text) == False or (
-                os.path.exists(path_text) == True
+            if not os.path.exists(path_text) or (
+                os.path.exists(path_text)
                 and len(open(path_text, "r", encoding="utf8").read().strip("\n").split("\n")) < 2
             ):
                 config = {
@@ -1173,8 +1172,8 @@ def open1abc(
             )
             #############################1c
             path_semantic = "%s/6-name2semantic.tsv" % opt_dir
-            if os.path.exists(path_semantic) == False or (
-                os.path.exists(path_semantic) == True and os.path.getsize(path_semantic) < 31
+            if not os.path.exists(path_semantic) or (
+                os.path.exists(path_semantic) and os.path.getsize(path_semantic) < 31
             ):
                 config_file = (
                     "GPT_SoVITS/configs/s2.json"
