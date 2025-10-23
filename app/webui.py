@@ -852,7 +852,7 @@ def close1a():
         for p1a in ps1a:
             try:
                 kill_process(p1a.pid, process_name_1a)
-            except:
+            except Exception:
                 traceback.print_exc()
         ps1a = []
     return (
@@ -943,7 +943,7 @@ def close1b():
         for p1b in ps1b:
             try:
                 kill_process(p1b.pid, process_name_1b)
-            except:
+            except Exception:
                 traceback.print_exc()
         ps1b = []
     return (
@@ -1029,7 +1029,7 @@ def close1c():
         for p1c in ps1c:
             try:
                 kill_process(p1c.pid, process_name_1c)
-            except:
+            except Exception:
                 traceback.print_exc()
         ps1c = []
     return (
@@ -1229,7 +1229,7 @@ def open1abc(
                 {"__type__": "update", "visible": True},
                 {"__type__": "update", "visible": False},
             )
-        except:
+        except Exception:
             traceback.print_exc()
             close1abc()
             yield (
@@ -1251,7 +1251,7 @@ def close1abc():
         for p1abc in ps1abc:
             try:
                 kill_process(p1abc.pid, process_name_1abc)
-            except:
+            except Exception:
                 traceback.print_exc()
         ps1abc = []
     return (
@@ -1401,7 +1401,7 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                     with gr.Column(scale=3):
                         with gr.Row():
                             asr_inp_dir = gr.Textbox(
-                                label=i18n("输入文件夹路径"), value="D:\\GPT-SoVITS\\raw\\xxx", interactive=True
+                                label=i18n("输入文件夹路径"), value="", placeholder="例: ./raw_audio", interactive=True
                             )
                             asr_opt_dir = gr.Textbox(
                                 label=i18n("输出文件夹路径"), value="output/asr_opt", interactive=True
@@ -1459,7 +1459,8 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                         with gr.Row():
                             path_list = gr.Textbox(
                                 label=i18n("标注文件路径 (含文件后缀 *.list)"),
-                                value="D:\\RVC1006\\GPT-SoVITS\\raw\\xxx.list",
+                                value="",
+                                placeholder="例: ./labels.list",
                                 interactive=True,
                             )
                             label_info = gr.Textbox(label=process_info(process_name_subfix, "info"))
@@ -1532,7 +1533,8 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                         with gr.Row():
                             inp_text = gr.Textbox(
                                 label=i18n("*文本标注文件"),
-                                value=r"D:\RVC1006\GPT-SoVITS\raw\xxx.list",
+                                value="",
+                                placeholder="例: ./labels.list",
                                 interactive=True,
                                 scale=10,
                             )
