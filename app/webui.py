@@ -1,7 +1,7 @@
 import os
 import sys
 
-os.environ["version"] = version = "v2Pro"
+os.environ["version"] = version = "v2ProPlus"
 now_dir = os.getcwd()
 sys.path.insert(0, now_dir)
 import warnings
@@ -1493,10 +1493,10 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                             interactive=False,
                             scale=5,
                         )
-                        version_checkbox = gr.Radio(
+                        version_checkbox = gr.Textbox(
                             label=i18n("训练模型的版本"),
                             value=version,
-                            choices=["v1", "v2", "v4", "v2Pro", "v2ProPlus"],
+                            interactive=False,
                             scale=5,
                         )
             with gr.Accordion(label=i18n("预训练模型路径"), open=False):

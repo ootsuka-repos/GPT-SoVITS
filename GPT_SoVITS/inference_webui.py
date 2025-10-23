@@ -42,7 +42,7 @@ logging.getLogger("torchaudio._extension").setLevel(logging.ERROR)
 logging.getLogger("multipart.multipart").setLevel(logging.ERROR)
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
-version = model_version = os.environ.get("version", "v2")
+version = model_version = os.environ.get("version", "v2ProPlus")
 
 from config.config import change_choices, get_weights_names, name2gpt_path, name2sovits_path
 
@@ -136,28 +136,19 @@ if torch.cuda.is_available():
 else:
     device = "cpu"
 
-dict_language_v1 = {
+dict_language = {
     i18n("中文"): "all_zh",  # 全部按中文识别
-    i18n("英文"): "en",  # 全部按英文识别#######不变
+    i18n("英文"): "en",  # 全部按英文识别
     i18n("日文"): "all_ja",  # 全部按日文识别
-    i18n("中英混合"): "zh",  # 按中英混合识别####不变
-    i18n("日英混合"): "ja",  # 按日英混合识别####不变
-    i18n("多语种混合"): "auto",  # 多语种启动切分识别语种
-}
-dict_language_v2 = {
-    i18n("中文"): "all_zh",  # 全部按中文识别
-    i18n("英文"): "en",  # 全部按英文识别#######不变
-    i18n("日文"): "all_ja",  # 全部按日文识别
-    i18n("粤语"): "all_yue",  # 全部按中文识别
+    i18n("粤语"): "all_yue",  # 全部按粤语识别
     i18n("韩文"): "all_ko",  # 全部按韩文识别
-    i18n("中英混合"): "zh",  # 按中英混合识别####不变
-    i18n("日英混合"): "ja",  # 按日英混合识别####不变
-    i18n("粤英混合"): "yue",  # 按粤英混合识别####不变
-    i18n("韩英混合"): "ko",  # 按韩英混合识别####不变
+    i18n("中英混合"): "zh",  # 按中英混合识别
+    i18n("日英混合"): "ja",  # 按日英混合识别
+    i18n("粤英混合"): "yue",  # 按粤英混合识别
+    i18n("韩英混合"): "ko",  # 按韩英混合识别
     i18n("多语种混合"): "auto",  # 多语种启动切分识别语种
     i18n("多语种混合(粤语)"): "auto_yue",  # 多语种启动切分识别语种
 }
-dict_language = dict_language_v1 if version == "v1" else dict_language_v2
 
 tokenizer = AutoTokenizer.from_pretrained(bert_path)
 bert_model = AutoModelForMaskedLM.from_pretrained(bert_path)
