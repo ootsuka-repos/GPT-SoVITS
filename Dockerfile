@@ -1,51 +1,38 @@
-ARG CUDA_VERSION=12.6
-ARG TORCH_BASE=full
-
-FROM xxxxrt666/torch-base:cu${CUDA_VERSION}-${TORCH_BASE}
+FROM nvidia/cuda:12.6.0-cudnn-devel-ubuntu22.04
 
 LABEL maintainer="XXXXRT"
-LABEL version="V4"
-LABEL description="Docker image for GPT-SoVITS"
+LABEL version="V5"
+LABEL description="Docker image for GPT-SoVITS without conda"
 
-ARG CUDA_VERSION=12.6
-
-ENV CUDA_VERSION=${CUDA_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH="/workspace/GPT-SoVITS"
 
 SHELL ["/bin/bash", "-c"]
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    ffmpeg \
+    git \
+    wget \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set python3.11 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+
 WORKDIR /workspace/GPT-SoVITS
 
-COPY Docker /workspace/GPT-SoVITS/Docker/
-
-ARG LITE=false
-ENV LITE=${LITE}
-
-ARG WORKFLOW=false
-ENV WORKFLOW=${WORKFLOW}
-
-ARG TARGETPLATFORM
-ENV TARGETPLATFORM=${TARGETPLATFORM}
-
-RUN bash Docker/miniconda_install.sh
-
+# Copy and install requirements
 COPY requirements.txt /workspace/GPT-SoVITS/
-
-RUN chmod +x /workspace/GPT-SoVITS/Docker/install_wrapper.sh
-
-RUN bash /workspace/GPT-SoVITS/Docker/install_wrapper.sh
+RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu126 && \
+    pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 9871 9872 9873 9874 9880
 
-ENV PYTHONPATH="/workspace/GPT-SoVITS"
-
-RUN conda init bash && echo "conda activate base" >> ~/.bashrc
-
-WORKDIR /workspace
-
-RUN rm -rf /workspace/GPT-SoVITS
-
-WORKDIR /workspace/GPT-SoVITS
-
-COPY . /workspace/GPT-SoVITS
-
-CMD ["/bin/bash", "-c", "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate base && python app/webui.py"]
+CMD ["python", "app/webui.py"]

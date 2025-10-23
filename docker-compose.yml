@@ -12,11 +12,8 @@ services:
       - "9874:9874"  # メインWebUI
       - "9880:9880"  # API
     volumes:
-      # モデルファイルとデータの永続化
-      - ./logs:/workspace/GPT-SoVITS/logs
-      - ./output:/workspace/GPT-SoVITS/output
-      - ./SoVITS_weights_v2ProPlus:/workspace/GPT-SoVITS/SoVITS_weights_v2ProPlus
-      - ./GPT_weights_v2ProPlus:/workspace/GPT-SoVITS/GPT_weights_v2ProPlus
+      # プロジェクト全体を共有
+      - .:/workspace/GPT-SoVITS
       # 事前学習済みモデル用のボリューム（外部からマウント）
       - models:/workspace/models
     environment:
