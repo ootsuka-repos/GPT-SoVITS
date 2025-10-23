@@ -63,8 +63,7 @@ from TTS_infer_pack.TTS import NO_PROMPT_ERROR, TTS, TTS_Config
 from tools.assets import css, js, top_html
 from tools.i18n.i18n import I18nAuto, scan_language_list
 
-language = os.environ.get("language", "Auto")
-language = sys.argv[-1] if sys.argv[-1] in scan_language_list() else language
+language = "ja_JP"
 i18n = I18nAuto(language=language)
 
 
