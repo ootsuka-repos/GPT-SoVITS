@@ -169,7 +169,8 @@ from AR.models.t2s_lightning_module import Text2SemanticLightningModule
 from text import cleaned_text_to_sequence
 from text.cleaner import clean_text
 from module.mel_processing import spectrogram_torch
-import config as global_config
+from config.config import *
+import config.config as global_config
 import logging
 import subprocess
 
@@ -379,7 +380,7 @@ from process_ckpt import get_sovits_version_from_path_fast, load_sovits_new
 
 
 def get_sovits_weights(sovits_path):
-    from config import pretrained_sovits_name
+    from config.config import pretrained_sovits_name
 
     path_sovits_v3 = pretrained_sovits_name["v3"]
     path_sovits_v4 = pretrained_sovits_name["v4"]

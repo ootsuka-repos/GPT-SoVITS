@@ -68,7 +68,7 @@ os.environ["language"] = language
 i18n = I18nAuto(language=language)
 from multiprocessing import cpu_count
 
-from config import (
+from config.config import (
     GPU_INDEX,
     GPU_INFOS,
     IS_GPU,
@@ -162,7 +162,7 @@ def fix_gpu_numbers(inputs):
         return inputs
 
 
-from config import pretrained_gpt_name, pretrained_sovits_name
+from config.config import pretrained_gpt_name, pretrained_sovits_name
 
 
 def check_pretrained_is_exist(version):
@@ -189,7 +189,7 @@ for key in pretrained_gpt_name.keys():
     if os.path.exists(pretrained_gpt_name[key]) == False:
         pretrained_gpt_name[key] = ""
 
-from config import (
+from config.config import (
     GPT_weight_root,
     GPT_weight_version2root,
     SoVITS_weight_root,
