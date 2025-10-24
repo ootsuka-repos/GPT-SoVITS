@@ -44,6 +44,6 @@ COPY config/ /workspace/GPT-SoVITS/config/
 COPY tools/ /workspace/GPT-SoVITS/tools/
 COPY api/ /workspace/GPT-SoVITS/api/
 
-EXPOSE 9871 9872 9873 9874 9880
+EXPOSE 9874 9880
 
 CMD ["python", "app/webui.py"]

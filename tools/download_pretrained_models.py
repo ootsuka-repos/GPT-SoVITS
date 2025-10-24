@@ -28,10 +28,19 @@ SNAPSHOT_REPOS = {
 
 SV_MODEL = "GPT_SoVITS/pretrained_models/sv/pretrained_eres2netv2w24s4ep4.ckpt"
 
+# Mapping from local path to Hugging Face repo path (when they differ)
+PATH_MAPPING = {
+    "GPT_SoVITS/pretrained_models/s1v3.ckpt": "s1v3.ckpt",
+    "GPT_SoVITS/pretrained_models/sv/pretrained_eres2netv2w24s4ep4.ckpt": "sv/pretrained_eres2netv2w24s4ep4.ckpt",
+    "GPT_SoVITS/pretrained_models/v2Pro/s2Dv2ProPlus.pth": "v2Pro/s2Dv2ProPlus.pth",
+    "GPT_SoVITS/pretrained_models/v2Pro/s2Gv2ProPlus.pth": "v2Pro/s2Gv2ProPlus.pth",
+}
+
 SUPPORTED_VERSION = "v2ProPlus"
 VERSION_REQUIREMENTS = {
     SUPPORTED_VERSION: {
         "GPT_SoVITS/pretrained_models/s1v3.ckpt",
+        "GPT_SoVITS/pretrained_models/v2Pro/s2Dv2ProPlus.pth",
         "GPT_SoVITS/pretrained_models/v2Pro/s2Gv2ProPlus.pth",
     }
 }
@@ -63,10 +72,10 @@ def download_repo_snapshot(repo_id: str, destination: Path, *, token: str | None
 
     if destination.exists() and any(destination.iterdir()) and not force:
         rel = destination.relative_to(REPO_ROOT)
-        print(f"✓ {rel} already present")
+        print(f"[OK] {rel} already present")
         return
 
-    print(f"→ Syncing snapshot {repo_id} -> {destination.relative_to(REPO_ROOT)}")
+    print(f"--> Syncing snapshot {repo_id} -> {destination.relative_to(REPO_ROOT)}")
     destination.mkdir(parents=True, exist_ok=True)
     try:
         repo_files = list_repo_files(repo_id=repo_id, repo_type="model", token=token)
@@ -97,20 +106,35 @@ def download_weight_file(relative_path: str, *, token: str | None, force: bool) 
     repo_id = "lj1995/GPT-SoVITS"
     target = REPO_ROOT / relative_path
     if target.exists() and not force:
-        print(f"✓ {relative_path} already present")
+        print(f"[OK] {relative_path} already present")
         return
 
+    # Map local path to HF repo path if needed
+    hf_path = PATH_MAPPING.get(relative_path, relative_path)
+
     target.parent.mkdir(parents=True, exist_ok=True)
-    print(f"→ Downloading {relative_path}")
+    print(f"--> Downloading {relative_path}")
     try:
-        hf_hub_download(
-            repo_id=repo_id,
-            filename=relative_path,
-            token=token,
-            local_dir=str(REPO_ROOT),
-            local_dir_use_symlinks=False,
-            force_download=force,
-        )
+        if hf_path != relative_path:
+            # Paths differ: download to cache then copy to target
+            import shutil
+            cached_file = hf_hub_download(
+                repo_id=repo_id,
+                filename=hf_path,
+                token=token,
+                force_download=force,
+            )
+            shutil.copy2(cached_file, target)
+        else:
+            # Standard download directly to target
+            hf_hub_download(
+                repo_id=repo_id,
+                filename=relative_path,
+                token=token,
+                local_dir=str(REPO_ROOT),
+                local_dir_use_symlinks=False,
+                force_download=force,
+            )
     except HfHubHTTPError as exc:
         raise SystemExit(f"Failed to download {relative_path} from {repo_id}: {exc}")
 

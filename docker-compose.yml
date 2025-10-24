@@ -6,9 +6,6 @@ services:
     image: gpt-sovits:latest
     container_name: gpt-sovits-webui
     ports:
-      - "9871:9871"  # 音声標注WebUI
-      - "9872:9872"  # TTS推理WebUI
-      - "9873:9873"  # 人声分離WebUI
       - "9874:9874"  # メインWebUI
       - "9880:9880"  # API
     volumes:
