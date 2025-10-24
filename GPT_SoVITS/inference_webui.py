@@ -1,24 +1,24 @@
 """
-按中英混合识别
-按日英混合识别
-多语种启动切分识别语种
-全部按中文识别
-全部按英文识别
-全部按日文识别
+中英混合で認識
+日英混合で認識
+多言語で起動し、言語を分割認識
+すべて中国語として認識
+すべて英語として認識
+すべて日本語として認識
 """
 import psutil
 import os
 
 def set_high_priority():
-    """把当前 Python 进程设为 HIGH_PRIORITY_CLASS"""
+    """現在のPythonプロセスをHIGH_PRIORITY_CLASSに設定"""
     if os.name != "nt":
-        return # 仅 Windows 有效
+        return # Windowsのみ有効
     p = psutil.Process(os.getpid())
     try:
         p.nice(psutil.HIGH_PRIORITY_CLASS)
-        print("已将进程优先级设为 High")
+        print("プロセス優先度をHighに設定しました")
     except psutil.AccessDenied:
-        print("权限不足，无法修改优先级（请用管理员运行）")
+        print("権限が不足しています。優先度を変更できません（管理者として実行してください）")
 set_high_priority()
 import json
 import logging

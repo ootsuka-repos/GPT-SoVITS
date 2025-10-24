@@ -88,7 +88,7 @@ from tools.my_utils import check_details, check_for_existance
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-# os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1' # 当遇到mps不支持的步骤时使用cpu
+# os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1' # mpsがサポートしないステップに遭遇したらcpuを使用
 import gradio as gr
 
 n_cpu = cpu_count()
@@ -128,7 +128,7 @@ def set_default():
     else:
         default_sovits_epoch = 2
         default_sovits_save_every_epoch = 1
-        max_sovits_epoch = 16  # 40 # 3 #训太多=作死
+        max_sovits_epoch = 16  # 40 # 3 # 訓練しすぎると危険
         max_sovits_save_every_epoch = 10  # 10 # 3
 
     default_batch_size = max(1, default_batch_size)
@@ -142,7 +142,7 @@ gpus = "-".join(map(str, GPU_INDEX))
 default_gpu_numbers = infer_device.index
 
 
-def fix_gpu_number(input):  # 将越界的number强制改到界内
+def fix_gpu_number(input):  # 範囲外のnumberを強制的に範囲内に変更
     try:
         if int(input) not in set_gpu_numbers:
             return default_gpu_numbers
@@ -1312,7 +1312,7 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
     )
 
     with gr.Tabs():
-        with gr.TabItem("0-" + i18n("前置数据集获取工具")):  # 提前随机切片防止uvr5爆内存->uvr5->slicer->asr->打标
+        with gr.TabItem("0-" + i18n("前置数据集获取工具")):  # 事前にランダムスライスしてuvr5のメモリオーバーを防ぐ->uvr5->slicer->asr->ラベリング
             with gr.Accordion(label="0a-" + i18n("UVR5人声伴奏分离&去混响去延迟工具")):
                 with gr.Row():
                     with gr.Column(scale=3):

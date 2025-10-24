@@ -35,9 +35,9 @@ GPT_weight_version2root = {
 
 
 def custom_sort_key(s):
-    # 使用正则表达式提取字符串中的数字部分和非数字部分
+    # 正規表現を使用して文字列内の数字部分と非数字部分を抽出
     parts = re.split("(\d+)", s)
-    # 将数字部分转换为整数，非数字部分保持不变
+    # 数字部分を整数に変換し、非数字部分はそのまま保持
     parts = [int(part) if part.isdigit() else part for part in parts]
     return parts
 
@@ -80,7 +80,7 @@ def change_choices():
     }
 
 
-# 推理用的指定模型
+# 推論用の指定モデル
 sovits_path = ""
 gpt_path = ""
 is_half_str = os.environ.get("is_half", "True")
