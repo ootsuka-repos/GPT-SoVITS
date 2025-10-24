@@ -999,7 +999,7 @@ class TTS:
                             _batch_audio_fragment[audio_frag_end_idx[i - 1] : audio_frag_end_idx[i]]
                             for i in range(1, len(audio_frag_end_idx))
                         ]
-                    else:
+                else:
                         # ## vits串行推理
                         for i, idx in enumerate(tqdm(idx_list)):
                             phones = batch_phones[i].unsqueeze(0).to(self.configs.device)
