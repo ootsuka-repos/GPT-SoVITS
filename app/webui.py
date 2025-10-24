@@ -49,9 +49,8 @@ for site_packages_root in site_packages_roots:
         try:
             with open("%s/users.pth" % (site_packages_root), "w") as f:
                 f.write(
-                    # "%s\n%s/runtime\n%s/tools\n%s/tools/asr\n%s/GPT_SoVITS\n%s/tools/uvr5"
-                    "%s\n%s/GPT_SoVITS/BigVGAN\n%s/tools\n%s/tools/asr\n%s/GPT_SoVITS\n%s/tools/uvr5"
-                    % (now_dir, now_dir, now_dir, now_dir, now_dir, now_dir)
+                    "%s\n%s/GPT_SoVITS/BigVGAN\n%s/tools\n%s/tools/asr\n%s/GPT_SoVITS"
+                    % (now_dir, now_dir, now_dir, now_dir, now_dir)
                 )
             break
         except PermissionError:
@@ -199,7 +198,6 @@ for root in SoVITS_weight_root + GPT_weight_root:
 SoVITS_names, GPT_names = get_weights_names()
 
 p_asr = None
-p_denoise = None
 
 
 def kill_proc_tree(pid, including_parent=True):
@@ -316,62 +314,6 @@ def close_asr():
         p_asr = None
     return (
         process_info(process_name_asr, "closed"),
-        {"__type__": "update", "visible": True},
-        {"__type__": "update", "visible": False},
-    )
-
-
-process_name_denoise = i18n("语音降噪")
-
-
-def open_denoise(denoise_inp_dir, denoise_opt_dir):
-    global p_denoise
-    if p_denoise == None:
-        denoise_inp_dir = my_utils.clean_path(denoise_inp_dir)
-        denoise_opt_dir = my_utils.clean_path(denoise_opt_dir)
-        check_for_existance([denoise_inp_dir])
-        cmd = '"%s" -s tools/cmd-denoise.py -i "%s" -o "%s" -p %s' % (
-            python_exec,
-            denoise_inp_dir,
-            denoise_opt_dir,
-            "float16" if is_half else "float32",
-        )
-
-        yield (
-            process_info(process_name_denoise, "opened"),
-            {"__type__": "update", "visible": False},
-            {"__type__": "update", "visible": True},
-            {"__type__": "update"},
-            {"__type__": "update"},
-        )
-        print(cmd)
-        p_denoise = Popen(cmd, shell=True)
-        p_denoise.wait()
-        p_denoise = None
-        yield (
-            process_info(process_name_denoise, "finish"),
-            {"__type__": "update", "visible": True},
-            {"__type__": "update", "visible": False},
-            {"__type__": "update", "value": denoise_opt_dir},
-            {"__type__": "update", "value": denoise_opt_dir},
-        )
-    else:
-        yield (
-            process_info(process_name_denoise, "occupy"),
-            {"__type__": "update", "visible": False},
-            {"__type__": "update", "visible": True},
-            {"__type__": "update"},
-            {"__type__": "update"},
-        )
-
-
-def close_denoise():
-    global p_denoise
-    if p_denoise is not None:
-        kill_process(p_denoise.pid, process_name_denoise)
-        p_denoise = None
-    return (
-        process_info(process_name_denoise, "closed"),
         {"__type__": "update", "visible": True},
         {"__type__": "update", "visible": False},
     )
@@ -555,104 +497,6 @@ def close1Bb():
         p_train_GPT = None
     return (
         process_info(process_name_gpt, "closed"),
-        {"__type__": "update", "visible": True},
-        {"__type__": "update", "visible": False},
-    )
-
-
-ps_slice = []
-process_name_slice = i18n("语音切分")
-
-
-def open_slice(inp, opt_root, threshold, min_length, min_interval, hop_size, max_sil_kept, _max, alpha, n_parts):
-    global ps_slice
-    inp = my_utils.clean_path(inp)
-    opt_root = my_utils.clean_path(opt_root)
-    check_for_existance([inp])
-    if not os.path.exists(inp):
-        yield (
-            i18n("输入路径不存在"),
-            {"__type__": "update", "visible": True},
-            {"__type__": "update", "visible": False},
-            {"__type__": "update"},
-            {"__type__": "update"},
-            {"__type__": "update"},
-        )
-        return
-    if os.path.isfile(inp):
-        n_parts = 1
-    elif os.path.isdir(inp):
-        pass
-    else:
-        yield (
-            i18n("输入路径存在但不可用"),
-            {"__type__": "update", "visible": True},
-            {"__type__": "update", "visible": False},
-            {"__type__": "update"},
-            {"__type__": "update"},
-            {"__type__": "update"},
-        )
-        return
-    if ps_slice == []:
-        for i_part in range(n_parts):
-            cmd = '"%s" -s tools/slice_audio.py "%s" "%s" %s %s %s %s %s %s %s %s %s' % (
-                python_exec,
-                inp,
-                opt_root,
-                threshold,
-                min_length,
-                min_interval,
-                hop_size,
-                max_sil_kept,
-                _max,
-                alpha,
-                i_part,
-                n_parts,
-            )
-            print(cmd)
-            p = Popen(cmd, shell=True)
-            ps_slice.append(p)
-        yield (
-            process_info(process_name_slice, "opened"),
-            {"__type__": "update", "visible": False},
-            {"__type__": "update", "visible": True},
-            {"__type__": "update"},
-            {"__type__": "update"},
-            {"__type__": "update"},
-        )
-        for p in ps_slice:
-            p.wait()
-        ps_slice = []
-        yield (
-            process_info(process_name_slice, "finish"),
-            {"__type__": "update", "visible": True},
-            {"__type__": "update", "visible": False},
-            {"__type__": "update", "value": opt_root},
-            {"__type__": "update", "value": opt_root},
-            {"__type__": "update", "value": opt_root},
-        )
-    else:
-        yield (
-            process_info(process_name_slice, "occupy"),
-            {"__type__": "update", "visible": False},
-            {"__type__": "update", "visible": True},
-            {"__type__": "update"},
-            {"__type__": "update"},
-            {"__type__": "update"},
-        )
-
-
-def close_slice():
-    global ps_slice
-    if ps_slice != []:
-        for p_slice in ps_slice:
-            try:
-                kill_process(p_slice.pid, process_name_slice)
-            except Exception:
-                traceback.print_exc()
-        ps_slice = []
-    return (
-        process_info(process_name_slice, "closed"),
         {"__type__": "update", "visible": True},
         {"__type__": "update", "visible": False},
     )
@@ -1197,78 +1041,7 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
     )
 
     with gr.Tabs():
-        with gr.TabItem("0-" + i18n("前置数据集获取工具")):  # 事前にランダムスライスしてuvr5のメモリオーバーを防ぐ->uvr5->slicer->asr->ラベリング
-            with gr.Accordion(label="0a-" + i18n("语音切分工具")):
-                with gr.Row():
-                    with gr.Column(scale=3):
-                        with gr.Row():
-                            slice_inp_path = gr.Textbox(label=i18n("音频自动切分输入路径，可文件可文件夹"), value="")
-                            slice_opt_root = gr.Textbox(
-                                label=i18n("切分后的子音频的输出根目录"), value="output/slicer_opt"
-                            )
-                        with gr.Row():
-                            threshold = gr.Textbox(
-                                label=i18n("threshold:音量小于这个值视作静音的备选切割点"), value="-34"
-                            )
-                            min_length = gr.Textbox(
-                                label=i18n("min_length:每段最小多长，如果第一段太短一直和后面段连起来直到超过这个值"),
-                                value="4000",
-                            )
-                            min_interval = gr.Textbox(label=i18n("min_interval:最短切割间隔"), value="300")
-                            hop_size = gr.Textbox(
-                                label=i18n("hop_size:怎么算音量曲线，越小精度越大计算量越高（不是精度越大效果越好）"),
-                                value="10",
-                            )
-                            max_sil_kept = gr.Textbox(label=i18n("max_sil_kept:切完后静音最多留多长"), value="500")
-                        with gr.Row():
-                            _max = gr.Slider(
-                                minimum=0,
-                                maximum=1,
-                                step=0.05,
-                                label=i18n("max:归一化后最大值多少"),
-                                value=0.9,
-                                interactive=True,
-                            )
-                            alpha = gr.Slider(
-                                minimum=0,
-                                maximum=1,
-                                step=0.05,
-                                label=i18n("alpha_mix:混多少比例归一化后音频进来"),
-                                value=0.25,
-                                interactive=True,
-                            )
-                        with gr.Row():
-                            n_process = gr.Slider(
-                                minimum=1,
-                                maximum=n_cpu,
-                                step=1,
-                                label=i18n("切割使用的进程数"),
-                                value=4,
-                                interactive=True,
-                            )
-                            slicer_info = gr.Textbox(label=process_info(process_name_slice, "info"))
-                    open_slicer_button = gr.Button(
-                        value=process_info(process_name_slice, "open"), variant="primary", visible=True
-                    )
-                    close_slicer_button = gr.Button(
-                        value=process_info(process_name_slice, "close"), variant="primary", visible=False
-                    )
-
-            # gr.Markdown(value="0bb-" + i18n("语音降噪工具")+i18n("(不稳定，先别用，可能劣化模型效果！)"))
-            with gr.Row(visible=False):
-                with gr.Column(scale=3):
-                    with gr.Row():
-                        denoise_input_dir = gr.Textbox(label=i18n("输入文件夹路径"), value="")
-                        denoise_output_dir = gr.Textbox(label=i18n("输出文件夹路径"), value="output/denoise_opt")
-                    with gr.Row():
-                        denoise_info = gr.Textbox(label=process_info(process_name_denoise, "info"))
-                open_denoise_button = gr.Button(
-                    value=process_info(process_name_denoise, "open"), variant="primary", visible=True
-                )
-                close_denoise_button = gr.Button(
-                    value=process_info(process_name_denoise, "close"), variant="primary", visible=False
-                )
-
+        with gr.TabItem("0-" + i18n("前置数据集获取工具")):  # データセット前処理ツール
             with gr.Accordion(label="0c-" + i18n("语音识别工具")):
                 with gr.Row():
                     with gr.Column(scale=3):
@@ -1499,29 +1272,6 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                 [asr_info, open_asr_button, close_asr_button, path_list, inp_text, inp_wav_dir],
             )
             close_asr_button.click(close_asr, [], [asr_info, open_asr_button, close_asr_button])
-            open_slicer_button.click(
-                open_slice,
-                [
-                    slice_inp_path,
-                    slice_opt_root,
-                    threshold,
-                    min_length,
-                    min_interval,
-                    hop_size,
-                    max_sil_kept,
-                    _max,
-                    alpha,
-                    n_process,
-                ],
-                [slicer_info, open_slicer_button, close_slicer_button, asr_inp_dir, denoise_input_dir, inp_wav_dir],
-            )
-            close_slicer_button.click(close_slice, [], [slicer_info, open_slicer_button, close_slicer_button])
-            open_denoise_button.click(
-                open_denoise,
-                [denoise_input_dir, denoise_output_dir],
-                [denoise_info, open_denoise_button, close_denoise_button, asr_inp_dir, inp_wav_dir],
-            )
-            close_denoise_button.click(close_denoise, [], [denoise_info, open_denoise_button, close_denoise_button])
 
             button1a_open.click(
                 open1a,
