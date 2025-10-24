@@ -1262,6 +1262,9 @@ def close1abc():
 
 
 def switch_version(version_):
+    if version_ != "v2ProPlus":
+        gr.Warning(i18n("現在はv2ProPlusのみサポートしています。"))
+        version_ = "v2ProPlus"
     os.environ["version"] = version_
     global version
     version = version_

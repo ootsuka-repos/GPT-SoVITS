@@ -107,10 +107,10 @@ from config.config import change_choices, get_weights_names, name2gpt_path, name
 SoVITS_names, GPT_names = get_weights_names()
 from config.config import pretrained_sovits_name
 
-path_sovits_v3 = pretrained_sovits_name["v3"]
-path_sovits_v4 = pretrained_sovits_name["v4"]
-is_exist_s2gv3 = os.path.exists(path_sovits_v3)
-is_exist_s2gv4 = os.path.exists(path_sovits_v4)
+path_sovits_v3 = pretrained_sovits_name.get("v3")
+path_sovits_v4 = pretrained_sovits_name.get("v4")
+is_exist_s2gv3 = bool(path_sovits_v3) and os.path.exists(path_sovits_v3)
+is_exist_s2gv4 = bool(path_sovits_v4) and os.path.exists(path_sovits_v4)
 
 tts_config = TTS_Config("GPT_SoVITS/configs/tts_infer.yaml")
 tts_config.device = device
@@ -217,22 +217,25 @@ with open("./weight.json", "r", encoding="utf-8") as file:
 
 from process_ckpt import get_sovits_version_from_path_fast
 
-v3v4set = {"v3", "v4"}
-
-
 def change_sovits_weights(sovits_path, prompt_language=None, text_language=None):
     if "！" in sovits_path or "!" in sovits_path:
         sovits_path = name2sovits_path[sovits_path]
     global version, model_version, dict_language, if_lora_v3
     version, model_version, if_lora_v3 = get_sovits_version_from_path_fast(sovits_path)
     # print(sovits_path,version, model_version, if_lora_v3)
-    is_exist = is_exist_s2gv3 if model_version == "v3" else is_exist_s2gv4
-    path_sovits = path_sovits_v3 if model_version == "v3" else path_sovits_v4
-    if if_lora_v3 and not is_exist:
-        info = path_sovits + "SoVITS %s" % model_version + i18n("底模缺失，无法加载相应 LoRA 权重")
+    if model_version != "v2ProPlus":
+        info = i18n("現在は v2ProPlus モデルのみサポートしています。")
         gr.Warning(info)
-        raise FileExistsError(info)
-    dict_language = dict_language_v1 if version == "v1" else dict_language_v2
+        raise ValueError(info)
+    if if_lora_v3:
+        info = i18n("LoRA モデルは現在サポートしていません。")
+        gr.Warning(info)
+        raise ValueError(info)
+    dict_language = dict_language_v2
+    prompt_text_update = {"__type__": "update"}
+    prompt_language_update = {"__type__": "update"}
+    text_update = {"__type__": "update"}
+    text_language_update = {"__type__": "update"}
     if prompt_language is not None and text_language is not None:
         if prompt_language in list(dict_language.keys()):
             prompt_text_update, prompt_language_update = (
@@ -247,12 +250,6 @@ def change_sovits_weights(sovits_path, prompt_language=None, text_language=None)
         else:
             text_update = {"__type__": "update", "value": ""}
             text_language_update = {"__type__": "update", "value": i18n("中文")}
-        if model_version in v3v4set:
-            visible_sample_steps = True
-            visible_inp_refs = False
-        else:
-            visible_sample_steps = False
-            visible_inp_refs = True
         yield (
             {"__type__": "update", "choices": list(dict_language.keys())},
             {"__type__": "update", "choices": list(dict_language.keys())},
@@ -260,9 +257,9 @@ def change_sovits_weights(sovits_path, prompt_language=None, text_language=None)
             prompt_language_update,
             text_update,
             text_language_update,
-            {"__type__": "update", "interactive": visible_sample_steps, "value": 32},
-            {"__type__": "update", "visible": visible_inp_refs},
-            {"__type__": "update", "interactive": True if model_version not in v3v4set else False},
+            {"__type__": "update", "interactive": False, "value": 32},
+            {"__type__": "update", "visible": True},
+            {"__type__": "update", "interactive": True},
             {"__type__": "update", "value": i18n("模型加载中，请等待"), "interactive": False},
         )
 
@@ -274,9 +271,9 @@ def change_sovits_weights(sovits_path, prompt_language=None, text_language=None)
         prompt_language_update,
         text_update,
         text_language_update,
-        {"__type__": "update", "interactive": visible_sample_steps, "value": 32},
-        {"__type__": "update", "visible": visible_inp_refs},
-        {"__type__": "update", "interactive": True if model_version not in v3v4set else False},
+        {"__type__": "update", "interactive": False, "value": 32},
+        {"__type__": "update", "visible": True},
+        {"__type__": "update", "interactive": True},
         {"__type__": "update", "value": i18n("合成语音"), "interactive": True},
     )
     with open("./weight.json") as f:
