@@ -1284,16 +1284,16 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                                 label=i18n("ASR 模型"),
                                 choices=list(asr_dict.keys()),
                                 interactive=True,
-                                value="达摩 ASR (中文)",
+                                value="Anime Whisper (Japanese)",
                             )
                             asr_size = gr.Dropdown(
-                                label=i18n("ASR 模型尺寸"), choices=["large"], interactive=True, value="large"
+                                label=i18n("ASR 模型尺寸"), choices=["default"], interactive=True, value="default"
                             )
                             asr_lang = gr.Dropdown(
-                                label=i18n("ASR 语言设置"), choices=["zh", "yue"], interactive=True, value="zh"
+                                label=i18n("ASR 语言设置"), choices=["ja"], interactive=True, value="ja"
                             )
                             asr_precision = gr.Dropdown(
-                                label=i18n("数据类型精度"), choices=["float32"], interactive=True, value="float32"
+                                label=i18n("数据类型精度"), choices=["float16", "float32"], interactive=True, value="float16"
                             )
                         with gr.Row():
                             asr_info = gr.Textbox(label=process_info(process_name_asr, "info"))
@@ -1758,9 +1758,6 @@ with gr.Blocks(title="GPT-SoVITS WebUI", analytics_enabled=False, js=js, css=css
                     lora_rank,
                 ],
             )
-
-        with gr.TabItem(i18n("2-GPT-SoVITS-变声")):
-            gr.Markdown(value=i18n("施工中，请静候佳音"))
 
     app.queue().launch(  # concurrency_count=511, max_size=1022
         server_name="0.0.0.0",
