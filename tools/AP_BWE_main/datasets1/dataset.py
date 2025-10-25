@@ -76,7 +76,7 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         filename = self.audio_indexes[index]
         if self._cache_ref_count == 0:
-            audio, orig_sampling_rate = torchaudio.load(os.path.join(self.wavs_dir, filename + ".wav"))
+            audio, orig_sampling_rate = torchaudio.load(os.path.join(self.wavs_dir, filename + ".wav"), backend="soundfile")
             self.cached_wav = audio
             self._cache_ref_count = self.n_cache_reuse
         else:

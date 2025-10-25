@@ -482,7 +482,7 @@ class TTS:
             self.prompt_cache["refer_spec"][0] = spec_audio
 
     def _get_ref_spec(self, ref_audio_path):
-        raw_audio, raw_sr = torchaudio.load(ref_audio_path)
+        raw_audio, raw_sr = torchaudio.load(ref_audio_path, backend="soundfile")
         raw_audio = raw_audio.to(self.configs.device).float()
         self.prompt_cache["raw_audio"] = raw_audio
         self.prompt_cache["raw_sr"] = raw_sr

@@ -67,6 +67,13 @@ if %errorlevel% neq 0 (
 )
 
 echo.
+echo torchcodecをインストール中...
+pip install torchcodec
+if %errorlevel% neq 0 (
+    echo [警告] torchcodecのインストールに失敗しました（継続します）
+)
+
+echo.
 echo その他の依存関係をインストール中...
 pip install Cython
 pip install git+https://github.com/r9y9/pyopenjtalk.git@v0.4.1

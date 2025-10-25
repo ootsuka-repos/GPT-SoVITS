@@ -828,7 +828,7 @@ def export_1(ref_wav_path, ref_wav_text, version="v3"):
         gpt_sovits_half = ExportGPTSovitsV4Half(sovits.hps, script_t2s, trace_vq_model)
         torch.jit.script(gpt_sovits_half).save("onnx/ad/gpt_sovits_v4_half.pt")
 
-    ref_audio, sr = torchaudio.load(ref_wav_path)
+    ref_audio, sr = torchaudio.load(ref_wav_path, backend="soundfile")
     ref_audio = ref_audio.to(device).float()
     if ref_audio.shape[0] == 2:
         ref_audio = ref_audio.mean(0).unsqueeze(0)

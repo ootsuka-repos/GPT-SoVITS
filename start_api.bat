@@ -20,5 +20,8 @@ echo 終了するにはCtrl+Cを押してください
 echo ====================================
 echo.
 
+REM FFmpegの共有ライブラリをPATHに追加
+set "PATH=%~dp0ffmpeg\ffmpeg-n7.1-latest-win64-lgpl-shared-7.1\bin;%PATH%"
+
 call .venv\Scripts\activate.bat
 uvicorn api.main:app --host 0.0.0.0 --port 9880
