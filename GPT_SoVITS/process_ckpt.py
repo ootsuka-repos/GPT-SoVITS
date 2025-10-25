@@ -94,15 +94,16 @@ def get_sovits_version_from_path_fast(sovits_path):
             v1weights:about 82942KB
                 half thr:82978KB
             v2weights:about 83014KB
-            v3weights:about 750MB
+            Unsupported weights:about 750MB
     """
     if size < 82978 * 1024:
         model_version = version = "v1"
     elif size < 700 * 1024 * 1024:
         model_version = version = "v2"
     else:
+        # v2ProPlus以外はサポート対象外
         version = "v2"
-        model_version = "v3"
+        model_version = "unsupported"
     return version, model_version, if_lora_v3
 
 

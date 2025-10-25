@@ -366,10 +366,10 @@ class VitsModel(nn.Module):
             else:
                 self.hps["model"]["version"] = "v2"
         else:
-            if version in ["v1", "v2", "v3", "v4", "v2Pro", "v2ProPlus"]:
+            if version in ["v1", "v2", "v2Pro", "v2ProPlus"]:
                 self.hps["model"]["version"] = version
             else:
-                raise ValueError(f"Unsupported version: {version}")
+                raise ValueError(f"Unsupported version: {version}. Only v2ProPlus is supported.")
 
         self.hps = DictToAttrRecursive(self.hps)
         self.hps.model.semantic_frame_rate = "25hz"

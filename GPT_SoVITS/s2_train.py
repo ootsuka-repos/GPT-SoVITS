@@ -2,6 +2,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import os
+import datetime
 
 import utils
 
@@ -51,80 +52,34 @@ device = "cpu"  # cuda以外的设备，等mps优化后加入
 
 
 def main():
-    if torch.cuda.is_available():
-        n_gpus = torch.cuda.device_count()
-    else:
-        n_gpus = 1
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = str(randint(20000, 55555))
-
-    mp.spawn(
-        run,
-        nprocs=n_gpus,
-        args=(
-            n_gpus,
-            hps,
-        ),
-    )
+    # Single GPU training - no multiprocessing needed
+    run(0, 1, hps)
 
 
 def run(rank, n_gpus, hps):
     global global_step
-    if rank == 0:
-        logger = utils.get_logger(hps.data.exp_dir)
-        logger.info(hps)
-        # utils.check_git_hash(hps.s2_ckpt_dir)
-        writer = SummaryWriter(log_dir=hps.s2_ckpt_dir)
-        writer_eval = SummaryWriter(log_dir=os.path.join(hps.s2_ckpt_dir, "eval"))
+    # Single GPU training - always use rank 0
+    logger = utils.get_logger(hps.data.exp_dir)
+    logger.info(hps)
+    writer = SummaryWriter(log_dir=hps.s2_ckpt_dir)
+    writer_eval = SummaryWriter(log_dir=os.path.join(hps.s2_ckpt_dir, "eval"))
 
-    dist.init_process_group(
-        backend="gloo" if os.name == "nt" or not torch.cuda.is_available() else "nccl",
-        init_method="env://?use_libuv=False",
-        world_size=n_gpus,
-        rank=rank,
-    )
     torch.manual_seed(hps.train.seed)
     if torch.cuda.is_available():
-        torch.cuda.set_device(rank)
+        torch.cuda.set_device(0)
 
     train_dataset = TextAudioSpeakerLoader(hps.data, version=hps.model.version)
-    train_sampler = DistributedBucketSampler(
-        train_dataset,
-        hps.train.batch_size,
-        [
-            32,
-            300,
-            400,
-            500,
-            600,
-            700,
-            800,
-            900,
-            1000,
-            1100,
-            1200,
-            1300,
-            1400,
-            1500,
-            1600,
-            1700,
-            1800,
-            1900,
-        ],
-        num_replicas=n_gpus,
-        rank=rank,
-        shuffle=True,
-    )
     collate_fn = TextAudioSpeakerCollate(version=hps.model.version)
     train_loader = DataLoader(
         train_dataset,
         num_workers=5,
-        shuffle=False,
+        shuffle=True,
+        batch_size=hps.train.batch_size,
         pin_memory=True,
         collate_fn=collate_fn,
-        batch_sampler=train_sampler,
         persistent_workers=True,
         prefetch_factor=4,
+        drop_last=True,
     )
     # if rank == 0:
     #     eval_dataset = TextAudioSpeakerLoader(hps.data.validation_files, hps.data, val=True)
@@ -196,10 +151,8 @@ def run(rank, n_gpus, hps):
         betas=hps.train.betas,
         eps=hps.train.eps,
     )
-    if torch.cuda.is_available():
-        net_g = DDP(net_g, device_ids=[rank], find_unused_parameters=True)
-        net_d = DDP(net_d, device_ids=[rank], find_unused_parameters=True)
-    else:
+    # Single GPU training - no DDP wrapper needed
+    if not torch.cuda.is_available():
         net_g = net_g.to(device)
         net_d = net_d.to(device)
 
@@ -230,35 +183,25 @@ def run(rank, n_gpus, hps):
             and hps.train.pretrained_s2G != None
             and os.path.exists(hps.train.pretrained_s2G)
         ):
-            if rank == 0:
-                logger.info("loaded pretrained %s" % hps.train.pretrained_s2G)
+            logger.info("loaded pretrained %s" % hps.train.pretrained_s2G)
             print(
                 "loaded pretrained %s" % hps.train.pretrained_s2G,
-                net_g.module.load_state_dict(
-                    torch.load(hps.train.pretrained_s2G, map_location="cpu", weights_only=False)["weight"],
-                    strict=False,
-                )
-                if torch.cuda.is_available()
-                else net_g.load_state_dict(
+                net_g.load_state_dict(
                     torch.load(hps.train.pretrained_s2G, map_location="cpu", weights_only=False)["weight"],
                     strict=False,
                 ),
-            )  ##测试不加载优化器
+            )
         if (
             hps.train.pretrained_s2D != ""
             and hps.train.pretrained_s2D != None
             and os.path.exists(hps.train.pretrained_s2D)
         ):
-            if rank == 0:
-                logger.info("loaded pretrained %s" % hps.train.pretrained_s2D)
+            logger.info("loaded pretrained %s" % hps.train.pretrained_s2D)
             print(
                 "loaded pretrained %s" % hps.train.pretrained_s2D,
-                net_d.module.load_state_dict(
-                    torch.load(hps.train.pretrained_s2D, map_location="cpu", weights_only=False)["weight"], strict=False
-                )
-                if torch.cuda.is_available()
-                else net_d.load_state_dict(
+                net_d.load_state_dict(
                     torch.load(hps.train.pretrained_s2D, map_location="cpu", weights_only=False)["weight"],
+                    strict=False,
                 ),
             )
 
@@ -283,33 +226,18 @@ def run(rank, n_gpus, hps):
 
     print("start training from epoch %s" % epoch_str)
     for epoch in range(epoch_str, hps.train.epochs + 1):
-        if rank == 0:
-            train_and_evaluate(
-                rank,
-                epoch,
-                hps,
-                [net_g, net_d],
-                [optim_g, optim_d],
-                [scheduler_g, scheduler_d],
-                scaler,
-                # [train_loader, eval_loader], logger, [writer, writer_eval])
-                [train_loader, None],
-                logger,
-                [writer, writer_eval],
-            )
-        else:
-            train_and_evaluate(
-                rank,
-                epoch,
-                hps,
-                [net_g, net_d],
-                [optim_g, optim_d],
-                [scheduler_g, scheduler_d],
-                scaler,
-                [train_loader, None],
-                None,
-                None,
-            )
+        train_and_evaluate(
+            rank,
+            epoch,
+            hps,
+            [net_g, net_d],
+            [optim_g, optim_d],
+            [scheduler_g, scheduler_d],
+            scaler,
+            [train_loader, None],
+            logger,
+            [writer, writer_eval],
+        )
         scheduler_g.step()
         scheduler_d.step()
     print("training done")
@@ -320,10 +248,8 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
     optim_g, optim_d = optims
     # scheduler_g, scheduler_d = schedulers
     train_loader, eval_loader = loaders
-    if writers is not None:
-        writer, writer_eval = writers
+    writer, writer_eval = writers
 
-    train_loader.batch_sampler.set_epoch(epoch)
     global global_step
 
     net_g.train()
@@ -448,70 +374,69 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
         scaler.step(optim_g)
         scaler.update()
 
-        if rank == 0:
-            if global_step % hps.train.log_interval == 0:
-                lr = optim_g.param_groups[0]["lr"]
-                losses = [loss_disc, loss_gen, loss_fm, loss_mel, kl_ssl, loss_kl]
-                logger.info(
-                    "Train Epoch: {} [{:.0f}%]".format(
-                        epoch,
-                        100.0 * batch_idx / len(train_loader),
-                    )
+        if global_step % hps.train.log_interval == 0:
+            lr = optim_g.param_groups[0]["lr"]
+            losses = [loss_disc, loss_gen, loss_fm, loss_mel, kl_ssl, loss_kl]
+            logger.info(
+                "Train Epoch: {} [{:.0f}%]".format(
+                    epoch,
+                    100.0 * batch_idx / len(train_loader),
                 )
-                logger.info([x.item() for x in losses] + [global_step, lr])
+            )
+            logger.info([x.item() for x in losses] + [global_step, lr])
 
-                scalar_dict = {
-                    "loss/g/total": loss_gen_all,
-                    "loss/d/total": loss_disc_all,
-                    "learning_rate": lr,
-                    "grad_norm_d": grad_norm_d,
-                    "grad_norm_g": grad_norm_g,
+            scalar_dict = {
+                "loss/g/total": loss_gen_all,
+                "loss/d/total": loss_disc_all,
+                "learning_rate": lr,
+                "grad_norm_d": grad_norm_d,
+                "grad_norm_g": grad_norm_g,
+            }
+            scalar_dict.update(
+                {
+                    "loss/g/fm": loss_fm,
+                    "loss/g/mel": loss_mel,
+                    "loss/g/kl_ssl": kl_ssl,
+                    "loss/g/kl": loss_kl,
                 }
-                scalar_dict.update(
-                    {
-                        "loss/g/fm": loss_fm,
-                        "loss/g/mel": loss_mel,
-                        "loss/g/kl_ssl": kl_ssl,
-                        "loss/g/kl": loss_kl,
-                    }
-                )
+            )
 
-                # scalar_dict.update({"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)})
-                # scalar_dict.update({"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)})
-                # scalar_dict.update({"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)})
-                image_dict = None
-                try:  ###Some people installed the wrong version of matplotlib.
-                    image_dict = {
-                        "slice/mel_org": utils.plot_spectrogram_to_numpy(
-                            y_mel[0].data.cpu().numpy(),
-                        ),
-                        "slice/mel_gen": utils.plot_spectrogram_to_numpy(
-                            y_hat_mel[0].data.cpu().numpy(),
-                        ),
-                        "all/mel": utils.plot_spectrogram_to_numpy(
-                            mel[0].data.cpu().numpy(),
-                        ),
-                        "all/stats_ssl": utils.plot_spectrogram_to_numpy(
-                            stats_ssl[0].data.cpu().numpy(),
-                        ),
-                    }
-                except:
-                    pass
-                if image_dict:
-                    utils.summarize(
-                        writer=writer,
-                        global_step=global_step,
-                        images=image_dict,
-                        scalars=scalar_dict,
-                    )
-                else:
-                    utils.summarize(
-                        writer=writer,
-                        global_step=global_step,
-                        scalars=scalar_dict,
-                    )
+            # scalar_dict.update({"loss/g/{}".format(i): v for i, v in enumerate(losses_gen)})
+            # scalar_dict.update({"loss/d_r/{}".format(i): v for i, v in enumerate(losses_disc_r)})
+            # scalar_dict.update({"loss/d_g/{}".format(i): v for i, v in enumerate(losses_disc_g)})
+            image_dict = None
+            try:  ###Some people installed the wrong version of matplotlib.
+                image_dict = {
+                    "slice/mel_org": utils.plot_spectrogram_to_numpy(
+                        y_mel[0].data.cpu().numpy(),
+                    ),
+                    "slice/mel_gen": utils.plot_spectrogram_to_numpy(
+                        y_hat_mel[0].data.cpu().numpy(),
+                    ),
+                    "all/mel": utils.plot_spectrogram_to_numpy(
+                        mel[0].data.cpu().numpy(),
+                    ),
+                    "all/stats_ssl": utils.plot_spectrogram_to_numpy(
+                        stats_ssl[0].data.cpu().numpy(),
+                    ),
+                }
+            except:
+                pass
+            if image_dict:
+                utils.summarize(
+                    writer=writer,
+                    global_step=global_step,
+                    images=image_dict,
+                    scalars=scalar_dict,
+                )
+            else:
+                utils.summarize(
+                    writer=writer,
+                    global_step=global_step,
+                    scalars=scalar_dict,
+                )
         global_step += 1
-    if epoch % hps.train.save_every_epoch == 0 and rank == 0:
+    if epoch % hps.train.save_every_epoch == 0:
         if hps.train.if_save_latest == 0:
             utils.save_checkpoint(
                 net_g,
@@ -554,11 +479,8 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
                     "D_{}.pth".format(233333333333),
                 ),
             )
-        if rank == 0 and hps.train.if_save_every_weights == True:
-            if hasattr(net_g, "module"):
-                ckpt = net_g.module.state_dict()
-            else:
-                ckpt = net_g.state_dict()
+        if hps.train.if_save_every_weights == True:
+            ckpt = net_g.state_dict()
             logger.info(
                 "saving ckpt %s_e%s:%s"
                 % (
@@ -575,8 +497,7 @@ def train_and_evaluate(rank, epoch, hps, nets, optims, schedulers, scaler, loade
                 )
             )
 
-    if rank == 0:
-        logger.info("====> Epoch: {}".format(epoch))
+    logger.info("====> Epoch: {}".format(epoch))
 
 
 def evaluate(hps, generator, eval_loader, writer_eval):
@@ -585,30 +506,39 @@ def evaluate(hps, generator, eval_loader, writer_eval):
     audio_dict = {}
     print("Evaluating ...")
     with torch.no_grad():
-        for batch_idx, (
-            ssl,
-            ssl_lengths,
-            spec,
-            spec_lengths,
-            y,
-            y_lengths,
-            text,
-            text_lengths,
-        ) in enumerate(eval_loader):
+        for batch_idx, data in enumerate(eval_loader):
+            if hps.model.version in {"v2Pro", "v2ProPlus"}:
+                ssl, ssl_lengths, spec, spec_lengths, y, y_lengths, text, text_lengths, sv_emb = data
+            else:
+                ssl, ssl_lengths, spec, spec_lengths, y, y_lengths, text, text_lengths = data
             print(111)
             if torch.cuda.is_available():
                 spec, spec_lengths = spec.cuda(), spec_lengths.cuda()
                 y, y_lengths = y.cuda(), y_lengths.cuda()
                 ssl = ssl.cuda()
                 text, text_lengths = text.cuda(), text_lengths.cuda()
+                if hps.model.version in {"v2Pro", "v2ProPlus"}:
+                    sv_emb = sv_emb.cuda()
             else:
                 spec, spec_lengths = spec.to(device), spec_lengths.to(device)
                 y, y_lengths = y.to(device), y_lengths.to(device)
                 ssl = ssl.to(device)
                 text, text_lengths = text.to(device), text_lengths.to(device)
+                if hps.model.version in {"v2Pro", "v2ProPlus"}:
+                    sv_emb = sv_emb.to(device)
             for test in [0, 1]:
-                y_hat, mask, *_ = (
-                    generator.module.infer(
+                if hps.model.version in {"v2Pro", "v2ProPlus"}:
+                    y_hat, mask, *_ = generator.infer(
+                        ssl,
+                        spec,
+                        spec_lengths,
+                        text,
+                        text_lengths,
+                        sv_emb,
+                        test=test,
+                    )
+                else:
+                    y_hat, mask, *_ = generator.infer(
                         ssl,
                         spec,
                         spec_lengths,
@@ -616,16 +546,6 @@ def evaluate(hps, generator, eval_loader, writer_eval):
                         text_lengths,
                         test=test,
                     )
-                    if torch.cuda.is_available()
-                    else generator.infer(
-                        ssl,
-                        spec,
-                        spec_lengths,
-                        text,
-                        text_lengths,
-                        test=test,
-                    )
-                )
                 y_hat_lengths = mask.sum([1, 2]).long() * hps.data.hop_length
 
                 mel = spec_to_mel_torch(

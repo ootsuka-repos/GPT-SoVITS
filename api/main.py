@@ -74,12 +74,26 @@ def _ensure_tts_pipeline() -> TTS:
     if _tts_pipeline is not None:
         return _tts_pipeline
 
-    cfg = TTS_Config()
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    cfg.device = device
-    cfg.is_half = device == "cuda"
-    cfg.save_configs()
+    # Get model paths from environment variables
+    gpt_model_path = os.environ.get("GPT_MODEL_PATH", "")
+    sovits_model_path = os.environ.get("SOVITS_MODEL_PATH", "")
 
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Create config with model paths
+    config = {
+        "custom": {
+            "device": device,
+            "is_half": device == "cuda",
+            "version": "v2ProPlus",
+            "t2s_weights_path": gpt_model_path,
+            "vits_weights_path": sovits_model_path,
+            "cnhuhbert_base_path": "GPT_SoVITS/pretrained_models/chinese-hubert-base",
+            "bert_base_path": "GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large",
+        }
+    }
+
+    cfg = TTS_Config(config)
     pipeline = TTS(cfg)
     _tts_pipeline = pipeline
     return pipeline

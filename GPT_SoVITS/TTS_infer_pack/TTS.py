@@ -113,7 +113,7 @@ class TTS_Config:
             "device": "cpu",
             "is_half": False,
             "version": "v2ProPlus",
-            "t2s_weights_path": "GPT_SoVITS/pretrained_models/s1v3.ckpt",
+            "t2s_weights_path": "",  # GPTモデルのパスを設定してください
             "vits_weights_path": "GPT_SoVITS/pretrained_models/v2Pro/s2Gv2ProPlus.pth",
             "cnhuhbert_base_path": "GPT_SoVITS/pretrained_models/chinese-hubert-base",
             "bert_base_path": "GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large",
