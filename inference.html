@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT-SoVITS 推論</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 1.8em;
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #fafafa;
+            border-radius: 6px;
+        }
+
+        .section-title {
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #666;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .file-button:hover {
+            background: #555;
+        }
+
+        .input-with-button {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-with-button input {
+            flex: 1;
+        }
+
+        .input-with-button .file-button {
+            flex-shrink: 0;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .synthesize-button {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+        }
+
+        .output-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 6px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GPT-SoVITS 推論</h1>
+
+        <div class="section">
+            <div class="section-title">モデル選択</div>
+
+            <div class="form-group">
+                <label>GPTモデル (.ckpt)</label>
+                <input type="text" id="gpt_model_path" value="C:\Users\admin\Desktop\GPT-SoVITS\GPT_weights_v2ProPlus\綾希-e15.ckpt">
+            </div>
+
+            <div class="form-group">
+                <label>SoVITSモデル (.pth)</label>
+                <input type="text" id="sovits_model_path" value="C:\Users\admin\Desktop\GPT-SoVITS\SoVITS_weights_v2ProPlus\綾希_e8_s784.pth">
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">リファレンス音声</div>
+
+            <div class="form-group">
+                <label>音声ファイルパス (.wav, .mp3)</label>
+                <input type="text" id="ref_audio_path" value="C:\Users\admin\Downloads\音声素材\No.27_喘ぎ声(大).wav">
+            </div>
+
+            <div class="form-group">
+                <label>リファレンステキスト</label>
+                <textarea id="ref_text" placeholder="リファレンス音声の内容"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>言語</label>
+                <select id="ref_language">
+                    <option value="ja" selected>日本語</option>
+                    <option value="zh">中国語</option>
+                    <option value="en">英語</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">生成する音声</div>
+
+            <div class="form-group">
+                <label>テキスト</label>
+                <textarea id="target_text" rows="4">あふっ、んくっ、うん…っ。ほんとは、だね…っ。ああっ、これが…セックス、なんだ…っ</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>言語</label>
+                <select id="target_language">
+                    <option value="ja" selected>日本語</option>
+                    <option value="zh">中国語</option>
+                    <option value="en">英語</option>
+                    <option value="auto">自動判定</option>
+                </select>
+            </div>
+        </div>
+
+        <button class="synthesize-button" id="synthesize_btn" onclick="synthesize()">音声を生成</button>
+
+        <div id="status" class="status"></div>
+        <div id="loading" class="loading">生成中...</div>
+
+        <div id="output" class="output-section">
+            <div class="section-title">生成された音声</div>
+            <audio id="result_audio" controls></audio>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:9880';
+
+        async function synthesize() {
+            const gptPath = document.getElementById('gpt_model_path').value.trim();
+            const sovitsPath = document.getElementById('sovits_model_path').value.trim();
+            const refAudioPath = document.getElementById('ref_audio_path').value.trim();
+            const refText = document.getElementById('ref_text').value.trim();
+            const refLanguage = document.getElementById('ref_language').value;
+            const targetText = document.getElementById('target_text').value.trim();
+            const targetLanguage = document.getElementById('target_language').value;
+
+            if (!gptPath || !sovitsPath) {
+                showStatus('モデルパスを入力してください', 'error');
+                return;
+            }
+
+            if (!refAudioPath) {
+                showStatus('リファレンス音声のパスを入力してください', 'error');
+                return;
+            }
+
+            if (!targetText) {
+                showStatus('テキストを入力してください', 'error');
+                return;
+            }
+
+            showLoading();
+            document.getElementById('output').style.display = 'none';
+
+            try {
+                const requestBody = {
+                    gpt_model_path: gptPath,
+                    sovits_model_path: sovitsPath,
+                    reference_audio_path: refAudioPath,
+                    text: targetText,
+                    text_language: targetLanguage,
+                    prompt_text: refText || null,
+                    prompt_language: refLanguage,
+                    top_k: 20,
+                    top_p: 0.6,
+                    temperature: 0.6,
+                    text_split_method: 'none',
+                    speed: 1.0
+                };
+
+                const response = await fetch(`${API_URL}/tts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                hideLoading();
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'APIエラー');
+                }
+
+                const result = await response.json();
+
+                const audioData = atob(result.audio_base64);
+                const audioArray = new Uint8Array(audioData.length);
+                for (let i = 0; i < audioData.length; i++) {
+                    audioArray[i] = audioData.charCodeAt(i);
+                }
+                const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+
+                const audio = document.getElementById('result_audio');
+                audio.src = audioUrl;
+                document.getElementById('output').style.display = 'block';
+
+                showStatus('生成完了', 'success');
+
+            } catch (error) {
+                hideLoading();
+                showStatus('エラー: ' + error.message, 'error');
+            }
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('synthesize_btn').disabled = true;
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('synthesize_btn').disabled = false;
+        }
+
+        // API接続確認
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                if (response.ok) {
+                    showStatus('API接続OK', 'success');
+                    setTimeout(() => document.getElementById('status').style.display = 'none', 2000);
+                }
+            } catch (error) {
+                showStatus('APIサーバーを起動してください', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

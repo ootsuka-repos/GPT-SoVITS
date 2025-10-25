@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import torch
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from GPT_SoVITS.TTS_infer_pack.TTS import TTS, TTS_Config
@@ -27,6 +28,15 @@ os.environ.setdefault("version", "v2ProPlus")
 
 app = FastAPI(title="GPT-SoVITS v2ProPlus API", version="1.0.0")
 
+# CORS設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 _pipeline_lock = asyncio.Lock()
 _tts_pipeline: Optional[TTS] = None
 
@@ -35,7 +45,10 @@ TEXT_SPLIT_METHODS = {"none": "cut0", "sentences": "cut1", "balanced": "cut2", "
 
 class SynthesisRequest(BaseModel):
     text: str = Field(..., description="Target text to be synthesized.")
-    reference_audio: str = Field(..., description="Base64-encoded reference audio (mono WAV recommended).")
+    reference_audio: Optional[str] = Field(None, description="Base64-encoded reference audio (mono WAV recommended).")
+    reference_audio_path: Optional[str] = Field(None, description="Path to reference audio file.")
+    gpt_model_path: Optional[str] = Field(None, description="Path to GPT model file (.ckpt)")
+    sovits_model_path: Optional[str] = Field(None, description="Path to SoVITS model file (.pth)")
     text_language: str = Field("auto", description="Language of the target text (e.g. auto, zh, en, ja, yue, ko, all_zh, all_ja, all_yue, all_ko, auto_yue).")
     prompt_text: Optional[str] = Field(None, description="Transcript of the reference audio. Leave empty if unknown.")
     prompt_language: str = Field("zh", description="Language code for the prompt text.")
@@ -69,14 +82,29 @@ class MetadataResponse(BaseModel):
     text_split_methods: List[str]
 
 
-def _ensure_tts_pipeline() -> TTS:
+class LoadModelsRequest(BaseModel):
+    gpt_model_path: str = Field(..., description="Path to GPT model file (.ckpt)")
+    sovits_model_path: str = Field(..., description="Path to SoVITS model file (.pth)")
+
+
+class LoadModelsResponse(BaseModel):
+    success: bool
+    message: str
+
+
+def _ensure_tts_pipeline(gpt_path: Optional[str] = None, sovits_path: Optional[str] = None) -> TTS:
     global _tts_pipeline
+
+    # If paths are provided, force reload
+    if gpt_path is not None and sovits_path is not None:
+        _tts_pipeline = None
+
     if _tts_pipeline is not None:
         return _tts_pipeline
 
-    # Get model paths from environment variables
-    gpt_model_path = os.environ.get("GPT_MODEL_PATH", "")
-    sovits_model_path = os.environ.get("SOVITS_MODEL_PATH", "")
+    # Get model paths from parameters or environment variables
+    gpt_model_path = gpt_path or os.environ.get("GPT_MODEL_PATH", "")
+    sovits_model_path = sovits_path or os.environ.get("SOVITS_MODEL_PATH", "")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -146,7 +174,12 @@ def _decode_base64_audio(encoded: str) -> bytes:
 
 @app.on_event("startup")
 async def _load_on_startup() -> None:
-    await asyncio.to_thread(_ensure_tts_pipeline)
+    # モデルは/load_modelsエンドポイントで明示的にロードする
+    # 環境変数が設定されている場合のみ自動ロード
+    gpt_path = os.environ.get("GPT_MODEL_PATH", "")
+    sovits_path = os.environ.get("SOVITS_MODEL_PATH", "")
+    if gpt_path and sovits_path:
+        await asyncio.to_thread(_ensure_tts_pipeline)
 
 
 @app.get("/health")
@@ -168,9 +201,58 @@ async def metadata() -> MetadataResponse:
     )
 
 
+@app.post("/load_models", response_model=LoadModelsResponse)
+async def load_models(request: LoadModelsRequest) -> LoadModelsResponse:
+    """Load or reload GPT and SoVITS models with specified paths."""
+    global _tts_pipeline
+
+    try:
+        # Validate paths
+        if not Path(request.gpt_model_path).exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"GPT model file not found: {request.gpt_model_path}"
+            )
+
+        if not Path(request.sovits_model_path).exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"SoVITS model file not found: {request.sovits_model_path}"
+            )
+
+        async with _pipeline_lock:
+            # Clear existing pipeline
+            _tts_pipeline = None
+
+            # Load new models
+            await asyncio.to_thread(
+                _ensure_tts_pipeline,
+                request.gpt_model_path,
+                request.sovits_model_path
+            )
+
+        return LoadModelsResponse(
+            success=True,
+            message=f"Models loaded successfully: GPT={request.gpt_model_path}, SoVITS={request.sovits_model_path}"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load models: {str(e)}"
+        )
+
+
 @app.post("/tts", response_model=SynthesisResponse)
 async def tts(request: SynthesisRequest) -> SynthesisResponse:
-    pipeline = _ensure_tts_pipeline()
+    # モデルパスが指定されている場合はロード
+    if request.gpt_model_path and request.sovits_model_path:
+        pipeline = _ensure_tts_pipeline(request.gpt_model_path, request.sovits_model_path)
+    else:
+        pipeline = _ensure_tts_pipeline()
+
     valid_languages = set(pipeline.configs.v2_languages)
 
     if request.text_language not in valid_languages:
@@ -190,9 +272,27 @@ async def tts(request: SynthesisRequest) -> SynthesisResponse:
             detail=f"Unsupported text_split_method '{request.text_split_method}'. Options: {list(TEXT_SPLIT_METHODS.keys())}",
         )
 
-    ref_bytes = _decode_base64_audio(request.reference_audio)
-    ref_suffix = ".wav"
-    ref_path = _write_temp_audio(ref_bytes, ref_suffix)
+    # リファレンス音声の処理
+    ref_path_to_delete = None
+    if request.reference_audio_path:
+        # ファイルパスが指定されている場合
+        ref_path = request.reference_audio_path
+        if not Path(ref_path).exists():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Reference audio file not found: {ref_path}"
+            )
+    elif request.reference_audio:
+        # Base64エンコードされた音声データの場合
+        ref_bytes = _decode_base64_audio(request.reference_audio)
+        ref_suffix = ".wav"
+        ref_path = _write_temp_audio(ref_bytes, ref_suffix)
+        ref_path_to_delete = ref_path
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either reference_audio or reference_audio_path must be provided"
+        )
 
     aux_paths: List[str] = []
     try:
@@ -226,6 +326,7 @@ async def tts(request: SynthesisRequest) -> SynthesisResponse:
 
         return await _synthesize(inputs)
     finally:
-        Path(ref_path).unlink(missing_ok=True)
+        if ref_path_to_delete:
+            Path(ref_path_to_delete).unlink(missing_ok=True)
         for path in aux_paths:
             Path(path).unlink(missing_ok=True)
